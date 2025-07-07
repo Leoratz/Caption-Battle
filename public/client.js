@@ -36,9 +36,6 @@ function initializeGame() {
             throw new Error('Éléments HTML de base manquants');
         }
         
-        // Ajouter les styles CSS
-        console.log('🎨 Ajout des styles...');
-        addBasicStyles();
         
         // Configurer les événements
         console.log('⚡ Configuration des événements...');
@@ -406,13 +403,39 @@ function startTimer(duration, elementId, callback) {
     return countdown;
 }
 
-// Ajouter les styles CSS de base
-function addBasicStyles() {
-    console.log('🎨 Ajout des styles CSS...');
+// Fonction pour changer de thème
+function switchTheme(themeName) {
+    console.log('🎨 Changement de thème vers:', themeName);
     
-    const style = document.createElement('style');
-    document.head.appendChild(style);
-    console.log('✅ Styles CSS ajoutés !');
+    if (!themes[themeName]) {
+        console.error('❌ Thème inconnu:', themeName);
+        return;
+    }
+    
+    currentTheme = themeName;
+    
+    // Appliquer les variables CSS du thème
+    const root = document.documentElement;
+    const theme = themes[themeName];
+    
+    Object.entries(theme).forEach(([property, value]) => {
+        root.style.setProperty(property, value);
+    });
+    
+    // Mettre à jour les boutons de thème
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    const activeBtn = document.getElementById(`${themeName}-theme-btn`);
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+    }
+    
+    // Sauvegarder le thème dans le localStorage
+    localStorage.setItem('captionBattleTheme', themeName);
+    
+    console.log('✅ Thème', themeName, 'appliqué');
 }
 
 // Événements Socket.IO
