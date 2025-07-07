@@ -4,6 +4,7 @@ const socket = io();
 let currentPlayer = null;
 let currentRoom = null;
 let players = [];
+let playerScores = {}; // Pour suivre les scores de tous les joueurs
 let currentMeme = null;
 let captions = [];
 let hasSubmittedCaption = false;
@@ -91,11 +92,11 @@ function setupGame() {
     document.addEventListener('click', function(event) {
         console.log('🖱️ Clic détecté:', event.target.id);
         
-        // Bouton démarrer le jeu - Le jeu démarre automatiquement avec 3 joueurs
+        // Bouton démarrer le jeu - Le jeu démarre automatiquement avec 4 joueurs
         if (event.target.id === 'start-game-btn') {
             event.preventDefault();
-            console.log('⚠️ Le jeu démarre automatiquement quand 3 joueurs sont connectés');
-            showMessage('Attendez que 3 joueurs rejoignent la salle pour commencer');
+            console.log('⚠️ Le jeu démarre automatiquement quand 4 joueurs sont connectés');
+            showMessage('Attendez que 4 joueurs rejoignent la salle pour commencer');
         }
         
         // Bouton soumettre légende
@@ -156,7 +157,7 @@ function createGameInterface(gameDiv) {
             <div class="game-content">
                 <div id="waiting-area" class="phase-container">
                     <h3>🚀 En attente d'autres joueurs...</h3>
-                    <p>Le jeu commence automatiquement quand 3 joueurs sont connectés</p>
+                    <p>Le jeu commence automatiquement quand 4 joueurs sont connectés</p>
                     <div id="status-message">Attendez que vos amis rejoignent avec le même nom de salle</div>
                 </div>
                 
@@ -230,12 +231,19 @@ function updatePlayersList(playersList) {
     console.log('👥 Mise à jour de la liste des joueurs:', playersList);
     players = playersList;
     
+    // Initialiser les scores pour les nouveaux joueurs
+    playersList.forEach(player => {
+        if (!(player in playerScores)) {
+            playerScores[player] = 0;
+        }
+    });
+    
     const playersContainer = document.getElementById('players-container');
     if (playersContainer) {
         playersContainer.innerHTML = playersList.map(player => `
             <div class="player-item">
                 <span class="player-name">${player}</span>
-                <span class="player-score">Score: 0</span>
+                <span class="player-score" id="score-${player}">Score: ${playerScores[player] || 0}</span>
                 ${player === currentPlayer ? '<span class="host-badge">VOUS</span>' : ''}
             </div>
         `).join('');
@@ -244,7 +252,7 @@ function updatePlayersList(playersList) {
     // Mettre à jour le statut
     const statusMessage = document.getElementById('status-message');
     if (statusMessage) {
-        const remaining = 3 - playersList.length;
+        const remaining = 4 - playersList.length;
         if (remaining > 0) {
             statusMessage.textContent = `En attente de ${remaining} joueur(s) supplémentaire(s)`;
         } else {
@@ -311,6 +319,27 @@ function startTimer(duration, elementId, callback) {
     }, 1000);
     
     return countdown;
+}
+
+function updatePlayerScores(totalScores) {
+    console.log('📊 Mise à jour des scores:', totalScores);
+    
+    // Mettre à jour les scores globaux
+    playerScores = { ...totalScores };
+    
+    // Mettre à jour l'affichage des scores dans la liste des joueurs
+    Object.entries(totalScores).forEach(([player, score]) => {
+        const scoreElement = document.getElementById(`score-${player}`);
+        if (scoreElement) {
+            scoreElement.textContent = `Score: ${score}`;
+        }
+    });
+    
+    // Mettre à jour le score personnel
+    const personalScoreElement = document.getElementById('score');
+    if (personalScoreElement && totalScores[currentPlayer] !== undefined) {
+        personalScoreElement.textContent = `🏆 Score: ${totalScores[currentPlayer]}`;
+    }
 }
 
 // Événements Socket.IO - Intégration avec le serveur
@@ -427,6 +456,8 @@ socket.on('vote-start', function(captionsData) {
 
 socket.on('round-end', function(data) {
     console.log('🏆 Fin du round:', data);
+    console.log('📊 Scores du round reçus:', data.roundScores);
+    console.log('📊 Scores totaux reçus:', data.totalScores);
     
     switchPhase('results-phase');
     
@@ -435,7 +466,7 @@ socket.on('round-end', function(data) {
     
     // Trouver le gagnant du round
     const winner = Object.entries(roundScores).reduce((max, [pseudo, score]) => 
-        score > max.score ? { pseudo, score } : max, { pseudo: '', score: 0 });
+        score > max.score ? { pseudo, score } : max, { pseudo: 'Aucun gagnant', score: 0 });
     
     const resultsDiv = document.getElementById('round-results');
     if (resultsDiv) {
@@ -449,12 +480,15 @@ socket.on('round-end', function(data) {
             </div>
             <div class="round-scores">
                 <h4>Scores du round :</h4>
-                ${Object.entries(roundScores).map(([pseudo, score]) => `
-                    <div class="score-item ${pseudo === currentPlayer ? 'my-score' : ''}">
-                        <span class="player-name">${pseudo}</span>
-                        <span class="round-score">+${score}</span>
-                    </div>
-                `).join('')}
+                ${players.map(player => {
+                    const score = roundScores[player] || 0;
+                    return `
+                        <div class="score-item ${player === currentPlayer ? 'my-score' : ''}">
+                            <span class="player-name">${player}</span>
+                            <span class="round-score">+${score}</span>
+                        </div>
+                    `;
+                }).join('')}
             </div>
         `;
     }
@@ -472,11 +506,8 @@ socket.on('round-end', function(data) {
         `).join('');
     }
     
-    // Mettre à jour le score personnel
-    const scoreElement = document.getElementById('score');
-    if (scoreElement && totalScores[currentPlayer]) {
-        scoreElement.textContent = `🏆 Score: ${totalScores[currentPlayer]}`;
-    }
+    // Mettre à jour tous les scores des joueurs
+    updatePlayerScores(totalScores);
     
     showMessage(`Round ${data.round} terminé ! ${winner.pseudo} gagne !`);
 });

@@ -43,7 +43,7 @@ io.on('connection', (socket) => {
 
         const nbPlayers = Object.keys(rooms[room].players).length;
         if (nbPlayers === 4) {
-            console.log(`🎮 La salle ${room} atteint 3 joueurs, lancement du jeu.`);
+            console.log(`🎮 La salle ${room} atteint 4 joueurs, lancement du jeu.`);
             io.to(room).emit('game-start', {
                 room,
                 players: Object.values(rooms[room].players)
@@ -202,16 +202,27 @@ function endRound(room, round) {
     console.log(`🏆 Fin du round ${round} pour la salle ${room}`);
     
     const scoreMap = {};
+    
+    // Compter les votes pour chaque joueur
+    console.log(`📊 Votes pour la salle ${room}, round ${round}:`, votes[room][round]);
+    
     for (const vote of Object.values(votes[room][round])) {
         scoreMap[vote] = (scoreMap[vote] || 0) + 1;
     }
+    
+    console.log(`📊 Scores du round ${round}:`, scoreMap);
 
     // Mise à jour des scores globaux
     for (const [pseudo, pts] of Object.entries(scoreMap)) {
         if (rooms[room].scores[pseudo] !== undefined) {
             rooms[room].scores[pseudo] += pts;
+            console.log(`📈 ${pseudo}: +${pts} points (total: ${rooms[room].scores[pseudo]})`);
+        } else {
+            console.log(`⚠️ Joueur ${pseudo} introuvable dans les scores globaux`);
         }
     }
+    
+    console.log(`📊 Scores totaux après round ${round}:`, rooms[room].scores);
 
     io.to(room).emit('round-end', {
         round,
