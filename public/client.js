@@ -8,6 +8,7 @@ let currentMeme = null;
 let captions = [];
 let hasSubmittedCaption = false;
 let hasVoted = false;
+let currentRound = 1;
 
 console.log('🚀 Script client.js chargé');
 
@@ -90,11 +91,11 @@ function setupGame() {
     document.addEventListener('click', function(event) {
         console.log('🖱️ Clic détecté:', event.target.id);
         
-        // Bouton démarrer le jeu
+        // Bouton démarrer le jeu - Le jeu démarre automatiquement avec 3 joueurs
         if (event.target.id === 'start-game-btn') {
             event.preventDefault();
-            console.log('🎮 Démarrage du jeu !');
-            startSimulatedGame();
+            console.log('⚠️ Le jeu démarre automatiquement quand 3 joueurs sont connectés');
+            showMessage('Attendez que 3 joueurs rejoignent la salle pour commencer');
         }
         
         // Bouton soumettre légende
@@ -104,25 +105,25 @@ function setupGame() {
             
             if (captionText && !hasSubmittedCaption) {
                 hasSubmittedCaption = true;
-                handleCaptionSubmission(captionText);
+                submitCaptionToServer(captionText);
                 event.target.disabled = true;
                 event.target.textContent = '✅ Envoyé !';
                 document.getElementById('caption-text').disabled = true;
             }
         }
         
-        // Bouton round suivant
+        // Bouton round suivant - Le serveur gère automatiquement
         if (event.target.id === 'next-round-btn') {
             event.preventDefault();
-            startSimulatedGame();
+            console.log('⚠️ Le round suivant démarre automatiquement');
         }
         
         // Boutons de vote
         if (event.target.classList.contains('vote-btn')) {
             event.preventDefault();
-            const index = parseInt(event.target.getAttribute('data-index'));
-            if (!isNaN(index)) {
-                voteForCaption(index);
+            const votedPseudo = event.target.getAttribute('data-pseudo');
+            if (votedPseudo && !hasVoted) {
+                voteForCaptionOnServer(votedPseudo);
             }
         }
     });
@@ -154,9 +155,9 @@ function createGameInterface(gameDiv) {
             
             <div class="game-content">
                 <div id="waiting-area" class="phase-container">
-                    <h3>🚀 Prêt à jouer !</h3>
-                    <p>Cliquez sur le bouton pour commencer une partie de démonstration</p>
-                    <button id="start-game-btn" class="big-button">🎮 Démarrer le jeu</button>
+                    <h3>🚀 En attente d'autres joueurs...</h3>
+                    <p>Le jeu commence automatiquement quand 3 joueurs sont connectés</p>
+                    <div id="status-message">Attendez que vos amis rejoignent avec le même nom de salle</div>
                 </div>
                 
                 <div id="meme-display" class="phase-container" style="display: none;">
@@ -187,7 +188,7 @@ function createGameInterface(gameDiv) {
                         <h4>📊 Classement:</h4>
                         <div id="scores-list"></div>
                     </div>
-                    <button id="next-round-btn" class="big-button">🔄 Round suivant</button>
+                    <div id="next-round-info">Le round suivant démarre automatiquement...</div>
                 </div>
             </div>
         </div>
@@ -196,171 +197,80 @@ function createGameInterface(gameDiv) {
     console.log('✅ Interface créée avec succès !');
 }
 
-function startSimulatedGame() {
-    console.log('🎮 Démarrage du jeu simulé...');
-    
-    // Réinitialiser les états
-    hasSubmittedCaption = false;
-    hasVoted = false;
-    
-    // Passer en phase meme
-    switchPhase('meme-display');
-    
-    // Memes disponibles
-    const availableMemes = [
-        'bibble.jpeg', 'dingdong.jpeg', 'dylan_bratz.jpeg', 'harry.jpg',
-        'justbieber.jpeg', 'lazytown.jpeg', 'nez.jpeg', 'rat.jpeg', 
-        'shrek.jpeg', 'thisisfine.jpg'
-    ];
-    
-    // Sélectionner un meme aléatoire
-    const randomMeme = availableMemes[Math.floor(Math.random() * availableMemes.length)];
-    console.log(`🎯 Meme sélectionné: ${randomMeme}`);
-    
-    // Afficher le meme
-    const memeImg = document.getElementById('current-meme');
-    const votingMeme = document.getElementById('voting-meme');
-    
-    if (memeImg) {
-        memeImg.src = `/memes/${randomMeme}`;
-        memeImg.onload = () => console.log('✅ Meme chargé !');
-        memeImg.onerror = () => console.error('❌ Erreur chargement meme');
-        
-        if (votingMeme) {
-            votingMeme.src = `/memes/${randomMeme}`;
-        }
-    }
-    
-    // Reset des champs
-    const captionInput = document.getElementById('caption-text');
-    const submitBtn = document.getElementById('submit-caption');
-    
-    if (captionInput) {
-        captionInput.value = '';
-        captionInput.disabled = false;
-    }
-    
-    if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = '📝 Soumettre';
-    }
-    
-    // Timer
-    startTimer(30, 'time-left', () => {
-        if (!hasSubmittedCaption) {
-            handleCaptionSubmission('Temps écoulé !');
-        }
+// Fonctions pour gérer la communication avec le serveur
+function submitCaptionToServer(caption) {
+    console.log('📝 Envoi de la légende au serveur:', caption);
+    socket.emit('submit-caption', { 
+        round: currentRound, 
+        caption: caption 
     });
 }
 
-function handleCaptionSubmission(caption) {
-    console.log('📝 Soumission de légende:', caption);
-    
-    // Créer des légendes simulées
-    captions = [
-        { text: caption, author: currentPlayer },
-        { text: 'Quand tu réalises que c\'est lundi demain 😭', author: 'Bot1' },
-        { text: 'Moi essayant de comprendre les maths', author: 'Bot2' },
-        { text: 'Cette expression quand tu vois ton relevé de compte', author: 'Bot3' }
-    ];
-    
-    setTimeout(() => {
-        switchPhase('voting-phase');
-        displayCaptionsForVoting();
-        startTimer(20, 'vote-time-left', () => {
-            if (!hasVoted) {
-                // Vote automatique
-                voteForCaption(1);
-            }
-        });
-    }, 2000);
-}
-
-function displayCaptionsForVoting() {
-    console.log('🗳️ Affichage des légendes pour vote');
-    
-    const captionsList = document.getElementById('captions-list');
-    
-    if (captionsList) {
-        captionsList.innerHTML = captions.map((caption, index) => `
-            <div class="caption-option">
-                <div class="caption-text">"${caption.text}"</div>
-                <div class="caption-author">- ${caption.author}</div>
-                <button class="vote-btn" data-index="${index}" ${caption.author === currentPlayer ? 'disabled' : ''}>
-                    ${caption.author === currentPlayer ? '❌ Votre légende' : '👍 Voter'}
-                </button>
-            </div>
-        `).join('');
-    }
-}
-
-function voteForCaption(index) {
+function voteForCaptionOnServer(votedPseudo) {
     if (hasVoted) return;
     
-    console.log('🗳️ Vote pour la légende', index);
+    console.log('🗳️ Vote envoyé au serveur pour:', votedPseudo);
     hasVoted = true;
     
-    // Désactiver tous les boutons
+    // Désactiver tous les boutons de vote
     document.querySelectorAll('.vote-btn').forEach(btn => {
         btn.disabled = true;
-        if (parseInt(btn.getAttribute('data-index')) === index) {
+        if (btn.getAttribute('data-pseudo') === votedPseudo) {
             btn.textContent = '✅ Voté !';
         }
     });
     
-    // Afficher les résultats
-    setTimeout(() => {
-        showResults();
-    }, 2000);
+    socket.emit('submit-vote', { 
+        round: currentRound, 
+        votedPseudo: votedPseudo 
+    });
 }
 
-function showResults() {
-    console.log('🏆 Affichage des résultats');
+function updatePlayersList(playersList) {
+    console.log('👥 Mise à jour de la liste des joueurs:', playersList);
+    players = playersList;
     
-    switchPhase('results-phase');
-    
-    // Simuler des votes
-    const results = captions.map(caption => ({
-        ...caption,
-        votes: Math.floor(Math.random() * 4) + 1
-    })).sort((a, b) => b.votes - a.votes);
-    
-    const winner = results[0];
-    
-    const resultsDiv = document.getElementById('round-results');
-    if (resultsDiv) {
-        resultsDiv.innerHTML = `
-            <div class="winning-caption">
-                <h4>🏆 Légende gagnante :</h4>
-                <div class="winner-info">
-                    <p class="caption">"${winner.text}"</p>
-                    <p class="author">Par: ${winner.author} (${winner.votes} votes)</p>
-                </div>
+    const playersContainer = document.getElementById('players-container');
+    if (playersContainer) {
+        playersContainer.innerHTML = playersList.map(player => `
+            <div class="player-item">
+                <span class="player-name">${player}</span>
+                <span class="player-score">Score: 0</span>
+                ${player === currentPlayer ? '<span class="host-badge">VOUS</span>' : ''}
             </div>
-            <div class="all-captions">
-                <h4>Toutes les légendes :</h4>
-                ${results.map((caption, index) => `
-                    <div class="result-caption ${caption.author === currentPlayer ? 'my-caption' : ''}">
-                        <span class="rank">#${index + 1}</span>
-                        <span class="caption-text">"${caption.text}"</span>
-                        <span class="caption-author">${caption.author}</span>
-                        <span class="caption-votes">${caption.votes} vote(s)</span>
-                    </div>
-                `).join('')}
-            </div>
-        `;
+        `).join('');
     }
     
-    // Mettre à jour le score du joueur
-    const playerResult = results.find(r => r.author === currentPlayer);
-    if (playerResult) {
-        const scoreElement = document.getElementById('score');
-        if (scoreElement) {
-            const currentScore = parseInt(scoreElement.textContent.split(':')[1] || 0);
-            const newScore = currentScore + playerResult.votes;
-            scoreElement.textContent = `🏆 Score: ${newScore}`;
+    // Mettre à jour le statut
+    const statusMessage = document.getElementById('status-message');
+    if (statusMessage) {
+        const remaining = 3 - playersList.length;
+        if (remaining > 0) {
+            statusMessage.textContent = `En attente de ${remaining} joueur(s) supplémentaire(s)`;
+        } else {
+            statusMessage.textContent = 'Tous les joueurs sont connectés ! Le jeu va commencer...';
         }
     }
+}
+
+function showMessage(message) {
+    console.log('📢 Message:', message);
+    
+    // Afficher une notification
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed; top: 20px; right: 20px; background: #2196F3; color: white; 
+        padding: 15px; border-radius: 8px; z-index: 1000; max-width: 300px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
 }
 
 function switchPhase(phase) {
@@ -403,44 +313,174 @@ function startTimer(duration, elementId, callback) {
     return countdown;
 }
 
-// Fonction pour changer de thème
-function switchTheme(themeName) {
-    console.log('🎨 Changement de thème vers:', themeName);
-    
-    if (!themes[themeName]) {
-        console.error('❌ Thème inconnu:', themeName);
-        return;
-    }
-    
-    currentTheme = themeName;
-    
-    // Appliquer les variables CSS du thème
-    const root = document.documentElement;
-    const theme = themes[themeName];
-    
-    Object.entries(theme).forEach(([property, value]) => {
-        root.style.setProperty(property, value);
-    });
-    
-    // Mettre à jour les boutons de thème
-    document.querySelectorAll('.theme-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    const activeBtn = document.getElementById(`${themeName}-theme-btn`);
-    if (activeBtn) {
-        activeBtn.classList.add('active');
-    }
-    
-    // Sauvegarder le thème dans le localStorage
-    localStorage.setItem('captionBattleTheme', themeName);
-    
-    console.log('✅ Thème', themeName, 'appliqué');
-}
-
-// Événements Socket.IO
+// Événements Socket.IO - Intégration avec le serveur
 socket.on('connect', function() {
     console.log('🔗 Connecté au serveur : ' + socket.id);
+});
+
+socket.on('player-list', function(playersList) {
+    console.log('👥 Liste des joueurs reçue:', playersList);
+    updatePlayersList(playersList);
+});
+
+socket.on('game-start', function(data) {
+    console.log('🎮 Le jeu commence !', data);
+    showMessage('Le jeu commence ! Préparez-vous...');
+});
+
+socket.on('round-start', function(data) {
+    console.log('🕒 Nouveau round:', data);
+    currentRound = data.round;
+    hasSubmittedCaption = false;
+    hasVoted = false;
+    
+    // Passer en phase meme
+    switchPhase('meme-display');
+    
+    // Afficher le meme
+    const memeImg = document.getElementById('current-meme');
+    const votingMeme = document.getElementById('voting-meme');
+    
+    if (memeImg) {
+        memeImg.src = data.imageUrl;
+        memeImg.onload = () => console.log('✅ Meme chargé !');
+        memeImg.onerror = () => console.error('❌ Erreur chargement meme');
+        
+        if (votingMeme) {
+            votingMeme.src = data.imageUrl;
+        }
+    }
+    
+    // Reset des champs
+    const captionInput = document.getElementById('caption-text');
+    const submitBtn = document.getElementById('submit-caption');
+    
+    if (captionInput) {
+        captionInput.value = '';
+        captionInput.disabled = false;
+    }
+    
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '📝 Soumettre';
+    }
+    
+    // Timer
+    startTimer(data.duration, 'time-left', () => {
+        if (!hasSubmittedCaption) {
+            submitCaptionToServer('Temps écoulé !');
+        }
+    });
+    
+    showMessage(`Round ${data.round} commence ! Créez votre légende !`);
+});
+
+socket.on('vote-start', function(captionsData) {
+    console.log('🗳️ Phase de vote commencée:', captionsData);
+    captions = captionsData;
+    
+    switchPhase('voting-phase');
+    
+    const captionsList = document.getElementById('captions-list');
+    if (captionsList) {
+        captionsList.innerHTML = captionsData.map(caption => `
+            <div class="caption-option">
+                <div class="caption-text">"${caption.caption}"</div>
+                <div class="caption-author">- ${caption.pseudo}</div>
+                <button class="vote-btn" data-pseudo="${caption.pseudo}" 
+                        ${caption.pseudo === currentPlayer ? 'disabled' : ''}>
+                    ${caption.pseudo === currentPlayer ? '❌ Votre légende' : '👍 Voter'}
+                </button>
+            </div>
+        `).join('');
+    }
+    
+    // Timer de vote
+    startTimer(20, 'vote-time-left', () => {
+        if (!hasVoted) {
+            // Vote automatique pour éviter de bloquer
+            const otherCaptions = captionsData.filter(c => c.pseudo !== currentPlayer);
+            if (otherCaptions.length > 0) {
+                voteForCaptionOnServer(otherCaptions[0].pseudo);
+            }
+        }
+    });
+    
+    showMessage('Votez pour la meilleure légende !');
+});
+
+socket.on('round-end', function(data) {
+    console.log('🏆 Fin du round:', data);
+    
+    switchPhase('results-phase');
+    
+    const roundScores = data.roundScores;
+    const totalScores = data.totalScores;
+    
+    // Trouver le gagnant du round
+    const winner = Object.entries(roundScores).reduce((max, [pseudo, score]) => 
+        score > max.score ? { pseudo, score } : max, { pseudo: '', score: 0 });
+    
+    const resultsDiv = document.getElementById('round-results');
+    if (resultsDiv) {
+        resultsDiv.innerHTML = `
+            <div class="winning-caption">
+                <h4>🏆 Gagnant du round ${data.round} :</h4>
+                <div class="winner-info">
+                    <p class="winner-name">${winner.pseudo}</p>
+                    <p class="winner-score">${winner.score} vote(s)</p>
+                </div>
+            </div>
+            <div class="round-scores">
+                <h4>Scores du round :</h4>
+                ${Object.entries(roundScores).map(([pseudo, score]) => `
+                    <div class="score-item ${pseudo === currentPlayer ? 'my-score' : ''}">
+                        <span class="player-name">${pseudo}</span>
+                        <span class="round-score">+${score}</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+    
+    // Mettre à jour le classement total
+    const scoresListDiv = document.getElementById('scores-list');
+    if (scoresListDiv) {
+        const sortedScores = Object.entries(totalScores).sort(([,a], [,b]) => b - a);
+        scoresListDiv.innerHTML = sortedScores.map(([pseudo, score], index) => `
+            <div class="leaderboard-item ${pseudo === currentPlayer ? 'my-score' : ''}">
+                <span class="rank">#${index + 1}</span>
+                <span class="player-name">${pseudo}</span>
+                <span class="total-score">${score} pts</span>
+            </div>
+        `).join('');
+    }
+    
+    // Mettre à jour le score personnel
+    const scoreElement = document.getElementById('score');
+    if (scoreElement && totalScores[currentPlayer]) {
+        scoreElement.textContent = `🏆 Score: ${totalScores[currentPlayer]}`;
+    }
+    
+    showMessage(`Round ${data.round} terminé ! ${winner.pseudo} gagne !`);
+});
+
+socket.on('game-end', function(data) {
+    console.log('🎯 Fin de partie !', data);
+    
+    const finalScores = Object.entries(data.scores).sort(([,a], [,b]) => b - a);
+    const champion = finalScores[0];
+    
+    showMessage(`🏆 Partie terminée ! ${champion[0]} remporte la victoire avec ${champion[1]} points !`);
+    
+    // Optionnel: retourner à l'écran d'attente pour une nouvelle partie
+    setTimeout(() => {
+        switchPhase('waiting-area');
+        const statusMessage = document.getElementById('status-message');
+        if (statusMessage) {
+            statusMessage.textContent = 'Partie terminée ! Attendez qu\'un nouveau jeu commence...';
+        }
+    }, 10000);
 });
 
 socket.on('system-message', function(message) {
@@ -465,6 +505,7 @@ socket.on('system-message', function(message) {
 
 socket.on('disconnect', function() {
     console.log('🔌 Déconnecté du serveur');
+    showMessage('⚠️ Connexion perdue avec le serveur');
 });
 
 socket.on('error', function(error) {
