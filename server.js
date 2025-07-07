@@ -60,19 +60,29 @@ io.on('connection', (socket) => {
         const pseudo = socket.data.pseudo;
         if (!room || !pseudo) return;
 
-        if (!captions[room]) captions[room] = {};
-        if (!captions[room][round]) captions[room][round] = {};
+        // Vérifier que le round est actif
+        if (!captions[room] || !captions[room][round]) {
+            console.log(`⚠️ ${pseudo} essaie de soumettre une légende pour un round inexistant: ${round} dans la salle ${room}`);
+            return;
+        }
+
+        // Vérifier que le joueur n'a pas déjà soumis
+        if (captions[room][round][pseudo]) {
+            console.log(`⚠️ ${pseudo} essaie de soumettre une seconde légende pour le round ${round}`);
+            return;
+        }
 
         captions[room][round][pseudo] = caption;
-        console.log(`📝 ${pseudo} a soumis une légende: "${caption}"`);
+        console.log(`📝 ${pseudo} a soumis une légende: "${caption}" pour le round ${round}`);
 
         const totalPlayers = Object.keys(rooms[room].players).length;
         const submitted = Object.keys(captions[room][round]).length;
 
-        console.log(`📊 Salle ${room}: ${submitted}/${totalPlayers} légendes soumises`);
+        console.log(`📊 Salle ${room}, round ${round}: ${submitted}/${totalPlayers} légendes soumises`);
 
         if (submitted === totalPlayers) {
             // Tous les joueurs ont soumis, on peut passer au vote immédiatement
+            console.log(`✅ Toutes les légendes soumises pour le round ${round}, passage au vote`);
             clearTimeout(timers[room]?.captionTimer);
             startVoting(room, round);
         }
@@ -83,19 +93,35 @@ io.on('connection', (socket) => {
         const voter = socket.data.pseudo;
         if (!room || !voter) return;
 
-        if (!votes[room]) votes[room] = {};
-        if (!votes[room][round]) votes[room][round] = {};
+        // Vérifier que le round est actif
+        if (!votes[room] || !votes[room][round]) {
+            console.log(`⚠️ ${voter} essaie de voter pour un round inexistant: ${round} dans la salle ${room}`);
+            return;
+        }
+
+        // Vérifier que le joueur n'a pas déjà voté
+        if (votes[room][round][voter]) {
+            console.log(`⚠️ ${voter} essaie de voter une seconde fois pour le round ${round}`);
+            return;
+        }
+
+        // Vérifier qu'on ne vote pas pour soi-même
+        if (voter === votedPseudo) {
+            console.log(`⚠️ ${voter} essaie de voter pour lui-même`);
+            return;
+        }
 
         votes[room][round][voter] = votedPseudo;
-        console.log(`🗳️ ${voter} a voté pour ${votedPseudo}`);
+        console.log(`🗳️ ${voter} a voté pour ${votedPseudo} dans le round ${round}`);
 
         const totalPlayers = Object.keys(rooms[room].players).length;
         const totalVotes = Object.keys(votes[room][round]).length;
 
-        console.log(`📊 Salle ${room}: ${totalVotes}/${totalPlayers} votes soumis`);
+        console.log(`📊 Salle ${room}, round ${round}: ${totalVotes}/${totalPlayers} votes soumis`);
 
         if (totalVotes === totalPlayers) {
             // Tous les joueurs ont voté, on peut terminer le round immédiatement
+            console.log(`✅ Tous les votes soumis pour le round ${round}, fin du round`);
             clearTimeout(timers[room]?.voteTimer);
             endRound(room, round);
         }
@@ -130,12 +156,25 @@ function startRound(room, roundNumber) {
     const img = memes[Math.floor(Math.random() * memes.length)];
     console.log(`🕒 Démarrage de la manche ${roundNumber} dans la salle ${room}.`);
 
+    // NETTOYER TOUS LES TIMERS EXISTANTS AVANT DE COMMENCER
+    if (timers[room]) {
+        if (timers[room].captionTimer) {
+            clearTimeout(timers[room].captionTimer);
+            console.log(`🧹 Timer de légendes précédent nettoyé pour la salle ${room}`);
+        }
+        if (timers[room].voteTimer) {
+            clearTimeout(timers[room].voteTimer);
+            console.log(`🧹 Timer de votes précédent nettoyé pour la salle ${room}`);
+        }
+    }
+
     io.to(room).emit('round-start', {
         round: roundNumber,
         imageUrl: img,
         duration: 30
     });
 
+    // Réinitialiser complètement les données du round
     if (!captions[room]) captions[room] = {};
     captions[room][roundNumber] = {};
     if (!votes[room]) votes[room] = {};
@@ -144,9 +183,17 @@ function startRound(room, roundNumber) {
     // Initialiser les timers pour cette salle si nécessaire
     if (!timers[room]) timers[room] = {};
     
+    console.log(`⏰ Démarrage du timer de 30 secondes pour les légendes dans la salle ${room}, round ${roundNumber}`);
+    
     // Timer automatique: après 30 secondes, passer au vote même si tout le monde n'a pas soumis
     timers[room].captionTimer = setTimeout(() => {
-        console.log(`⏰ Temps écoulé pour les légendes dans la salle ${room}`);
+        console.log(`⏰ Temps écoulé pour les légendes dans la salle ${room}, round ${roundNumber}`);
+        
+        // Vérifier que ce round est toujours actif
+        if (!captions[room] || !captions[room][roundNumber]) {
+            console.log(`⚠️ Round ${roundNumber} déjà terminé ou inexistant dans la salle ${room}`);
+            return;
+        }
         
         // Ajouter des légendes par défaut pour les joueurs qui n'ont pas soumis
         const allPlayers = Object.keys(rooms[room].players);
@@ -167,15 +214,38 @@ function startRound(room, roundNumber) {
 function startVoting(room, round) {
     console.log(`🗳️ Début de la phase de vote pour la salle ${room}, round ${round}`);
     
+    // Nettoyer le timer de légendes maintenant qu'on passe au vote
+    if (timers[room]?.captionTimer) {
+        clearTimeout(timers[room].captionTimer);
+        timers[room].captionTimer = null;
+        console.log(`🧹 Timer de légendes nettoyé pour la salle ${room}`);
+    }
+    
+    // Vérifier que les données du round existent
+    if (!captions[room] || !captions[room][round]) {
+        console.log(`⚠️ Données de légendes manquantes pour la salle ${room}, round ${round}`);
+        return;
+    }
+    
     const captionsArray = Object.entries(captions[room][round]).map(([pseudo, caption]) => ({
         pseudo, caption
     }));
     
+    console.log(`📝 Légendes pour le vote dans la salle ${room}:`, captionsArray);
+    
     io.to(room).emit('vote-start', captionsArray);
+    
+    console.log(`⏰ Démarrage du timer de 20 secondes pour les votes dans la salle ${room}, round ${round}`);
     
     // Timer automatique: après 20 secondes, terminer le round même si tout le monde n'a pas voté
     timers[room].voteTimer = setTimeout(() => {
-        console.log(`⏰ Temps écoulé pour les votes dans la salle ${room}`);
+        console.log(`⏰ Temps écoulé pour les votes dans la salle ${room}, round ${round}`);
+        
+        // Vérifier que ce round est toujours actif
+        if (!votes[room] || !votes[room][round]) {
+            console.log(`⚠️ Round ${round} déjà terminé ou inexistant dans la salle ${room}`);
+            return;
+        }
         
         // Ajouter des votes par défaut pour les joueurs qui n'ont pas voté
         const allPlayers = Object.keys(rooms[room].players);
@@ -200,6 +270,13 @@ function startVoting(room, round) {
 
 function endRound(room, round) {
     console.log(`🏆 Fin du round ${round} pour la salle ${room}`);
+    
+    // Nettoyer le timer de votes maintenant que le round se termine
+    if (timers[room]?.voteTimer) {
+        clearTimeout(timers[room].voteTimer);
+        timers[room].voteTimer = null;
+        console.log(`🧹 Timer de votes nettoyé pour la salle ${room}`);
+    }
     
     const scoreMap = {};
     
@@ -231,14 +308,27 @@ function endRound(room, round) {
     });
 
     if (round < 3) {
+        console.log(`🔄 Programmation du round ${round + 1} dans 5 secondes pour la salle ${room}`);
         setTimeout(() => {
-            startRound(room, round + 1);
+            // Vérifier que la salle existe encore
+            if (rooms[room]) {
+                startRound(room, round + 1);
+            } else {
+                console.log(`⚠️ Salle ${room} supprimée avant le démarrage du round ${round + 1}`);
+            }
         }, 5000);
     } else {
+        console.log(`🏁 Fin de partie programmée dans 5 secondes pour la salle ${room}`);
         setTimeout(() => {
-            io.to(room).emit('game-end', {
-                scores: rooms[room].scores
-            });
+            // Vérifier que la salle existe encore
+            if (rooms[room]) {
+                io.to(room).emit('game-end', {
+                    scores: rooms[room].scores
+                });
+                console.log(`🎯 Fin de partie envoyée pour la salle ${room}`);
+            } else {
+                console.log(`⚠️ Salle ${room} supprimée avant la fin de partie`);
+            }
         }, 5000);
     }
 }

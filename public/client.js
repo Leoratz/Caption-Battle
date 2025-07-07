@@ -10,6 +10,7 @@ let captions = [];
 let hasSubmittedCaption = false;
 let hasVoted = false;
 let currentRound = 1;
+let currentTimer = null; // Pour gérer les timers côté client
 
 console.log('🚀 Script client.js chargé');
 
@@ -200,7 +201,14 @@ function createGameInterface(gameDiv) {
 
 // Fonctions pour gérer la communication avec le serveur
 function submitCaptionToServer(caption) {
+    if (hasSubmittedCaption) {
+        console.log('⚠️ Légende déjà soumise pour ce round');
+        return;
+    }
+    
     console.log('📝 Envoi de la légende au serveur:', caption);
+    hasSubmittedCaption = true;
+    
     socket.emit('submit-caption', { 
         round: currentRound, 
         caption: caption 
@@ -359,9 +367,20 @@ socket.on('game-start', function(data) {
 
 socket.on('round-start', function(data) {
     console.log('🕒 Nouveau round:', data);
+    
+    // Nettoyer le timer précédent s'il existe
+    if (currentTimer) {
+        clearInterval(currentTimer);
+        currentTimer = null;
+        console.log('🧹 Timer précédent nettoyé');
+    }
+    
+    // Réinitialiser l'état du round
     currentRound = data.round;
     hasSubmittedCaption = false;
     hasVoted = false;
+    
+    console.log(`🎮 Démarrage du round ${currentRound} - État réinitialisé`);
     
     // Passer en phase meme
     switchPhase('meme-display');
@@ -387,6 +406,7 @@ socket.on('round-start', function(data) {
     if (captionInput) {
         captionInput.value = '';
         captionInput.disabled = false;
+        captionInput.placeholder = 'Entrez votre légende drôle...';
     }
     
     if (submitBtn) {
@@ -394,8 +414,8 @@ socket.on('round-start', function(data) {
         submitBtn.textContent = '📝 Soumettre';
     }
     
-    // Timer
-    startTimer(data.duration, 'time-left', () => {
+    // Timer avec gestion améliorée
+    currentTimer = startTimer(data.duration, 'time-left', () => {
         if (!hasSubmittedCaption) {
             console.log('⏰ Temps écoulé ! Soumission automatique...');
             submitCaptionToServer('Temps écoulé !');
@@ -404,7 +424,10 @@ socket.on('round-start', function(data) {
             const captionInput = document.getElementById('caption-text');
             const submitBtn = document.getElementById('submit-caption');
             
-            if (captionInput) captionInput.disabled = true;
+            if (captionInput) {
+                captionInput.disabled = true;
+                captionInput.placeholder = 'Temps écoulé';
+            }
             if (submitBtn) {
                 submitBtn.disabled = true;
                 submitBtn.textContent = '⏰ Temps écoulé';
@@ -418,6 +441,13 @@ socket.on('round-start', function(data) {
 socket.on('vote-start', function(captionsData) {
     console.log('🗳️ Phase de vote commencée:', captionsData);
     captions = captionsData;
+    
+    // Nettoyer le timer précédent s'il existe
+    if (currentTimer) {
+        clearInterval(currentTimer);
+        currentTimer = null;
+        console.log('🧹 Timer de légendes nettoyé pour passer au vote');
+    }
     
     switchPhase('voting-phase');
     
@@ -437,9 +467,10 @@ socket.on('vote-start', function(captionsData) {
     
     // Reset hasVoted pour le nouveau round
     hasVoted = false;
+    console.log(`🗳️ État de vote réinitialisé pour le round ${currentRound}`);
     
-    // Timer de vote
-    startTimer(20, 'vote-time-left', () => {
+    // Timer de vote avec gestion améliorée
+    currentTimer = startTimer(20, 'vote-time-left', () => {
         if (!hasVoted) {
             console.log('⏰ Temps de vote écoulé ! Vote automatique...');
             // Vote automatique pour éviter de bloquer
