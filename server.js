@@ -13,6 +13,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 io.on('connection', (socket) => {
     console.log('A user connected : ', socket.id);
 
+    socket.on('join-room', ({pseudo, room}) => {
+        socket.join(room);
+        console.log(`${pseudo} a rejoint la salle ${room} (socket ${socket.id})`);
+
+        socket.to(room).emit('system-message', `${pseudo} a rejoint la salle.`);
+    });
     socket.on('disconnect', () => {
         console.log('A user disconnected : ', socket.id);
     });

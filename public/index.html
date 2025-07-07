@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caption Battle</title>
+</head>
+<body>
+    <h1>Bienvenue dans Caption Battle</h1>
+
+    <form id="join-form">
+        <input type="text" id="pseudo" placeholder="Entrez votre pseudo" required />
+        <input type="text" id="room" placeholder="Nom de la salle" required />
+        <button type="submit">Rejoindre</button>
+    </form>
+
+    <div id="game"></div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        socket.on('connect', function() {
+            console.log('Connecté au serveur : ' + socket.id);
+        });
+        const form = document.getElementById('join-form');
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const pseudo = document.getElementById('pseudo').value.trim();
+            const room = document.getElementById('room').value.trim();
+            
+            if (pseudo && room) {
+                socket.emit('join-room', { pseudo, room });
+                form.style.display = 'none';
+                document.getElementById('game').innerHTML = `<h2>${pseudo}, vous avez rejoint la salle : ${room}</h2>`;
+            } else {
+                alert('Veuillez entrer un pseudo et un nom de salle valides.');
+            }
+        });
+
+        socket.on('gameStarted', function(data) {
+            document.getElementById('game').innerHTML = `<h2>Jeu commencé dans la salle: ${data.room}</h2>`;
+        });
+
+        socket.on('error', function(error) {
+            alert(error);
+        });
+        
+    </script
+</body>
+</html>
