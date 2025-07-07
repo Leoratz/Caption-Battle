@@ -10,21 +10,11 @@ const io = new Server(server);
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-const memes = [
-    './memes/bibble.jpeg',
-    './memes/dingdong.jpeg',
-    './memes/dylan_bratz.jpeg',
-    './memes/harry.jpg',
-    './memes/justbieber.jpeg',
-    './memes/lazytown.jpeg',
-    './memes/nez.jpeg',
-    './memes/rat.jpeg',
-    './memes/shrek.jpeg',
-    './memes/thisisfine.jpg',
-]
-
 const rooms = {};
 const captions = {};
+
+// Serve memes directory
+app.use('/memes', express.static(path.join(__dirname, 'memes')));
 
 io.on('connection', (socket) => {
     console.log('A user connected : ', socket.id);
