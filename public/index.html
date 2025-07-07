@@ -17,35 +17,6 @@
     <div id="game"></div>
     
     <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-
-        socket.on('connect', function() {
-            console.log('Connecté au serveur : ' + socket.id);
-        });
-        const form = document.getElementById('join-form');
-        form.addEventListener('submit', function(event) {
-            event.preventDefault();
-            const pseudo = document.getElementById('pseudo').value.trim();
-            const room = document.getElementById('room').value.trim();
-            
-            if (pseudo && room) {
-                socket.emit('join-room', { pseudo, room });
-                form.style.display = 'none';
-                document.getElementById('game').innerHTML = `<h2>${pseudo}, vous avez rejoint la salle : ${room}</h2>`;
-            } else {
-                alert('Veuillez entrer un pseudo et un nom de salle valides.');
-            }
-        });
-
-        socket.on('gameStarted', function(data) {
-            document.getElementById('game').innerHTML = `<h2>Jeu commencé dans la salle: ${data.room}</h2>`;
-        });
-
-        socket.on('error', function(error) {
-            alert(error);
-        });
-        
-    </script
+    <script src="client.js"></script>
 </body>
 </html>

@@ -10,6 +10,9 @@ const io = new Server(server);
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Serve memes directory
+app.use('/memes', express.static(path.join(__dirname, 'memes')));
+
 io.on('connection', (socket) => {
     console.log('A user connected : ', socket.id);
 
