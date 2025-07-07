@@ -8,43 +8,6 @@ let currentMeme = null;
 let captions = [];
 let hasSubmittedCaption = false;
 let hasVoted = false;
-let currentTheme = 'light'; // 'light' ou 'dark'
-
-// Thèmes de couleurs
-const themes = {
-    light: {
-        '--bg-gradient-start': '#667eea',
-        '--bg-gradient-end': '#764ba2',
-        '--primary-bg': 'white',
-        '--secondary-bg': '#f8f9fa',
-        '--text-primary': '#333',
-        '--text-secondary': '#6c757d',
-        '--text-light': 'white',
-        '--border-color': '#e9ecef',
-        '--shadow': 'rgba(0,0,0,0.1)',
-        '--shadow-dark': 'rgba(0,0,0,0.3)',
-        '--accent-primary': '#4CAF50',
-        '--accent-secondary': '#2196F3',
-        '--warning': '#ffc107',
-        '--danger': '#e74c3c'
-    },
-    dark: {
-        '--bg-gradient-start': '#2c3e50',
-        '--bg-gradient-end': '#34495e',
-        '--primary-bg': '#2c3e50',
-        '--secondary-bg': '#34495e',
-        '--text-primary': '#ecf0f1',
-        '--text-secondary': '#bdc3c7',
-        '--text-light': '#ecf0f1',
-        '--border-color': '#4a5f7a',
-        '--shadow': 'rgba(0,0,0,0.3)',
-        '--shadow-dark': 'rgba(0,0,0,0.5)',
-        '--accent-primary': '#27ae60',
-        '--accent-secondary': '#3498db',
-        '--warning': '#f39c12',
-        '--danger': '#e74c3c'
-    }
-};
 
 console.log('🚀 Script client.js chargé');
 
@@ -130,17 +93,6 @@ function setupGame() {
     document.addEventListener('click', function(event) {
         console.log('🖱️ Clic détecté:', event.target.id);
         
-        // Boutons de thème
-        if (event.target.id === 'light-theme-btn') {
-            event.preventDefault();
-            switchTheme('light');
-        }
-        
-        if (event.target.id === 'dark-theme-btn') {
-            event.preventDefault();
-            switchTheme('dark');
-        }
-        
         // Bouton démarrer le jeu
         if (event.target.id === 'start-game-btn') {
             event.preventDefault();
@@ -183,11 +135,6 @@ function createGameInterface(gameDiv) {
     console.log('🏗️ Création de l\'interface de jeu...');
     
     gameDiv.innerHTML = `
-        <div class="theme-switcher">
-            <button id="light-theme-btn" class="theme-btn ${currentTheme === 'light' ? 'active' : ''}">☀️ Light</button>
-            <button id="dark-theme-btn" class="theme-btn ${currentTheme === 'dark' ? 'active' : ''}">🌙 Dark</button>
-        </div>
-        
         <div class="game-container">
             <div class="game-header">
                 <h2>🎮 Caption Battle - Salle: ${currentRoom}</h2>
@@ -457,41 +404,6 @@ function startTimer(duration, elementId, callback) {
     }, 1000);
     
     return countdown;
-}
-
-// Fonction pour changer de thème
-function switchTheme(themeName) {
-    console.log('🎨 Changement de thème vers:', themeName);
-    
-    if (!themes[themeName]) {
-        console.error('❌ Thème inconnu:', themeName);
-        return;
-    }
-    
-    currentTheme = themeName;
-    
-    // Appliquer les variables CSS du thème
-    const root = document.documentElement;
-    const theme = themes[themeName];
-    
-    Object.entries(theme).forEach(([property, value]) => {
-        root.style.setProperty(property, value);
-    });
-    
-    // Mettre à jour les boutons de thème
-    document.querySelectorAll('.theme-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    const activeBtn = document.getElementById(`${themeName}-theme-btn`);
-    if (activeBtn) {
-        activeBtn.classList.add('active');
-    }
-    
-    // Sauvegarder le thème dans le localStorage
-    localStorage.setItem('captionBattleTheme', themeName);
-    
-    console.log('✅ Thème', themeName, 'appliqué');
 }
 
 // Ajouter les styles CSS de base
