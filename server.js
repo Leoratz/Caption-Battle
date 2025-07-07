@@ -19,6 +19,7 @@ const memes = fs.readdirSync(memesDir).map(filename => `/memes/${filename}`);
 const rooms = {};
 const captions = {};
 const votes = {};
+const timers = {}; // Pour gérer les timers automatiques
 
 io.on('connection', (socket) => {
     console.log('✅ Nouveau joueur connecté :', socket.id);
@@ -41,7 +42,7 @@ io.on('connection', (socket) => {
         socket.to(room).emit('system-message', `${pseudo} a rejoint la salle.`);
 
         const nbPlayers = Object.keys(rooms[room].players).length;
-        if (nbPlayers === 3) {
+        if (nbPlayers === 4) {
             console.log(`🎮 La salle ${room} atteint 3 joueurs, lancement du jeu.`);
             io.to(room).emit('game-start', {
                 room,
@@ -63,15 +64,17 @@ io.on('connection', (socket) => {
         if (!captions[room][round]) captions[room][round] = {};
 
         captions[room][round][pseudo] = caption;
+        console.log(`📝 ${pseudo} a soumis une légende: "${caption}"`);
 
         const totalPlayers = Object.keys(rooms[room].players).length;
         const submitted = Object.keys(captions[room][round]).length;
 
+        console.log(`📊 Salle ${room}: ${submitted}/${totalPlayers} légendes soumises`);
+
         if (submitted === totalPlayers) {
-            const captionsArray = Object.entries(captions[room][round]).map(([pseudo, caption]) => ({
-                pseudo, caption
-            }));
-            io.to(room).emit('vote-start', captionsArray);
+            // Tous les joueurs ont soumis, on peut passer au vote immédiatement
+            clearTimeout(timers[room]?.captionTimer);
+            startVoting(room, round);
         }
     });
 
@@ -84,38 +87,17 @@ io.on('connection', (socket) => {
         if (!votes[room][round]) votes[room][round] = {};
 
         votes[room][round][voter] = votedPseudo;
+        console.log(`🗳️ ${voter} a voté pour ${votedPseudo}`);
 
         const totalPlayers = Object.keys(rooms[room].players).length;
         const totalVotes = Object.keys(votes[room][round]).length;
 
+        console.log(`📊 Salle ${room}: ${totalVotes}/${totalPlayers} votes soumis`);
+
         if (totalVotes === totalPlayers) {
-            const scoreMap = {};
-            for (const vote of Object.values(votes[room][round])) {
-                scoreMap[vote] = (scoreMap[vote] || 0) + 1;
-            }
-
-            // Mise à jour des scores globaux
-            for (const [pseudo, pts] of Object.entries(scoreMap)) {
-                rooms[room].scores[pseudo] += pts;
-            }
-
-            io.to(room).emit('round-end', {
-                round,
-                roundScores: scoreMap,
-                totalScores: rooms[room].scores
-            });
-
-            if (round < 3) {
-                setTimeout(() => {
-                    startRound(room, round + 1);
-                }, 5000);
-            } else {
-                setTimeout(() => {
-                    io.to(room).emit('game-end', {
-                        scores: rooms[room].scores
-                    });
-                }, 5000);
-            }
+            // Tous les joueurs ont voté, on peut terminer le round immédiatement
+            clearTimeout(timers[room]?.voteTimer);
+            endRound(room, round);
         }
     });
 
@@ -131,6 +113,13 @@ io.on('connection', (socket) => {
         io.to(room).emit('player-list', Object.values(rooms[room].players));
 
         if (Object.keys(rooms[room].players).length === 0) {
+            // Nettoyer les timers quand la salle est vide
+            if (timers[room]) {
+                clearTimeout(timers[room].captionTimer);
+                clearTimeout(timers[room].voteTimer);
+                delete timers[room];
+            }
+            
             delete rooms[room];
             console.log(`❌ La salle ${room} est vide et a été supprimée.`);
         }
@@ -151,6 +140,96 @@ function startRound(room, roundNumber) {
     captions[room][roundNumber] = {};
     if (!votes[room]) votes[room] = {};
     votes[room][roundNumber] = {};
+    
+    // Initialiser les timers pour cette salle si nécessaire
+    if (!timers[room]) timers[room] = {};
+    
+    // Timer automatique: après 30 secondes, passer au vote même si tout le monde n'a pas soumis
+    timers[room].captionTimer = setTimeout(() => {
+        console.log(`⏰ Temps écoulé pour les légendes dans la salle ${room}`);
+        
+        // Ajouter des légendes par défaut pour les joueurs qui n'ont pas soumis
+        const allPlayers = Object.keys(rooms[room].players);
+        const submittedPlayers = Object.keys(captions[room][roundNumber]);
+        
+        allPlayers.forEach(playerId => {
+            const playerName = rooms[room].players[playerId];
+            if (!submittedPlayers.includes(playerName)) {
+                captions[room][roundNumber][playerName] = "Temps écoulé !";
+                console.log(`📝 Légende par défaut ajoutée pour ${playerName}`);
+            }
+        });
+        
+        startVoting(room, roundNumber);
+    }, 32000); // 32 secondes pour laisser un peu de marge
+}
+
+function startVoting(room, round) {
+    console.log(`🗳️ Début de la phase de vote pour la salle ${room}, round ${round}`);
+    
+    const captionsArray = Object.entries(captions[room][round]).map(([pseudo, caption]) => ({
+        pseudo, caption
+    }));
+    
+    io.to(room).emit('vote-start', captionsArray);
+    
+    // Timer automatique: après 20 secondes, terminer le round même si tout le monde n'a pas voté
+    timers[room].voteTimer = setTimeout(() => {
+        console.log(`⏰ Temps écoulé pour les votes dans la salle ${room}`);
+        
+        // Ajouter des votes par défaut pour les joueurs qui n'ont pas voté
+        const allPlayers = Object.keys(rooms[room].players);
+        const votedPlayers = Object.keys(votes[room][round]);
+        const availableCaptions = Object.keys(captions[room][round]);
+        
+        allPlayers.forEach(playerId => {
+            const playerName = rooms[room].players[playerId];
+            if (!votedPlayers.includes(playerName)) {
+                // Voter pour la première légende qui n'est pas la sienne
+                const otherCaptions = availableCaptions.filter(pseudo => pseudo !== playerName);
+                if (otherCaptions.length > 0) {
+                    votes[room][round][playerName] = otherCaptions[0];
+                    console.log(`🗳️ Vote par défaut ajouté: ${playerName} vote pour ${otherCaptions[0]}`);
+                }
+            }
+        });
+        
+        endRound(room, round);
+    }, 22000); // 22 secondes pour laisser un peu de marge
+}
+
+function endRound(room, round) {
+    console.log(`🏆 Fin du round ${round} pour la salle ${room}`);
+    
+    const scoreMap = {};
+    for (const vote of Object.values(votes[room][round])) {
+        scoreMap[vote] = (scoreMap[vote] || 0) + 1;
+    }
+
+    // Mise à jour des scores globaux
+    for (const [pseudo, pts] of Object.entries(scoreMap)) {
+        if (rooms[room].scores[pseudo] !== undefined) {
+            rooms[room].scores[pseudo] += pts;
+        }
+    }
+
+    io.to(room).emit('round-end', {
+        round,
+        roundScores: scoreMap,
+        totalScores: rooms[room].scores
+    });
+
+    if (round < 3) {
+        setTimeout(() => {
+            startRound(room, round + 1);
+        }, 5000);
+    } else {
+        setTimeout(() => {
+            io.to(room).emit('game-end', {
+                scores: rooms[room].scores
+            });
+        }, 5000);
+    }
 }
 
 const PORT = process.env.PORT || 3000;

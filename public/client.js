@@ -368,7 +368,18 @@ socket.on('round-start', function(data) {
     // Timer
     startTimer(data.duration, 'time-left', () => {
         if (!hasSubmittedCaption) {
+            console.log('⏰ Temps écoulé ! Soumission automatique...');
             submitCaptionToServer('Temps écoulé !');
+            
+            // Désactiver l'interface
+            const captionInput = document.getElementById('caption-text');
+            const submitBtn = document.getElementById('submit-caption');
+            
+            if (captionInput) captionInput.disabled = true;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = '⏰ Temps écoulé';
+            }
         }
     });
     
@@ -395,13 +406,18 @@ socket.on('vote-start', function(captionsData) {
         `).join('');
     }
     
+    // Reset hasVoted pour le nouveau round
+    hasVoted = false;
+    
     // Timer de vote
     startTimer(20, 'vote-time-left', () => {
         if (!hasVoted) {
+            console.log('⏰ Temps de vote écoulé ! Vote automatique...');
             // Vote automatique pour éviter de bloquer
             const otherCaptions = captionsData.filter(c => c.pseudo !== currentPlayer);
             if (otherCaptions.length > 0) {
                 voteForCaptionOnServer(otherCaptions[0].pseudo);
+                showMessage('⏰ Temps écoulé ! Vote automatique effectué.');
             }
         }
     });
