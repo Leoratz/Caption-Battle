@@ -417,10 +417,9 @@ socket.on('round-start', function(data) {
     // Timer avec gestion améliorée
     currentTimer = startTimer(data.duration, 'time-left', () => {
         if (!hasSubmittedCaption) {
-            console.log('⏰ Temps écoulé ! Soumission automatique...');
-            submitCaptionToServer('Temps écoulé !');
+            console.log('⏰ Temps écoulé ! Le serveur va gérer la soumission automatique...');
             
-            // Désactiver l'interface
+            // Désactiver l'interface sans soumettre - le serveur s'en charge
             const captionInput = document.getElementById('caption-text');
             const submitBtn = document.getElementById('submit-caption');
             
