@@ -20,6 +20,7 @@ const rooms = {};
 const captions = {};
 const votes = {};
 const timers = {}; // Pour gérer les timers automatiques
+const usedMemes = {}; // Pour éviter la répétition des memes par salle
 
 io.on('connection', (socket) => {
 
@@ -164,14 +165,33 @@ io.on('connection', (socket) => {
             }
             
             delete rooms[room];
+            delete usedMemes[room]; // Nettoyer aussi les memes utilisés
             console.log(`❌ La salle ${room} est vide et a été supprimée.`);
         }
     });
 });
 
 function startRound(room, roundNumber) {
-    const img = memes[Math.floor(Math.random() * memes.length)];
-    console.log(`🕒 Démarrage de la manche ${roundNumber} dans la salle ${room}`);
+    // Initialiser la liste des memes utilisés pour cette salle si nécessaire
+    if (!usedMemes[room]) {
+        usedMemes[room] = [];
+    }
+    
+    // Sélectionner un meme qui n'a pas encore été utilisé
+    let availableMemes = memes.filter(meme => !usedMemes[room].includes(meme));
+    
+    // Si tous les memes ont été utilisés, réinitialiser la liste
+    if (availableMemes.length === 0) {
+        console.log(`🔄 Tous les memes utilisés dans la salle ${room}, réinitialisation de la liste`);
+        usedMemes[room] = [];
+        availableMemes = [...memes];
+    }
+    
+    // Choisir un meme aléatoire parmi ceux disponibles
+    const img = availableMemes[Math.floor(Math.random() * availableMemes.length)];
+    usedMemes[room].push(img);
+    
+    console.log(`🕒 Démarrage de la manche ${roundNumber} dans la salle ${room} - Meme: ${img}`);
 
     // Nettoyer tous les timers existants avant de commencer
     if (timers[room]) {
