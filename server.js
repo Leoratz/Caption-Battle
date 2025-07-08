@@ -22,7 +22,6 @@ const votes = {};
 const timers = {}; // Pour gérer les timers automatiques
 
 io.on('connection', (socket) => {
-    console.log('✅ Nouveau joueur connecté :', socket.id);
 
     socket.on('join-room', ({ pseudo, room }) => {
         socket.join(room);
@@ -36,14 +35,11 @@ io.on('connection', (socket) => {
         rooms[room].players[socket.id] = pseudo;
         rooms[room].scores[pseudo] = 0;
 
-        console.log(`${pseudo} a rejoint la salle ${room} (socket ${socket.id})`);
-
         io.to(room).emit('player-list', Object.values(rooms[room].players));
         socket.to(room).emit('system-message', `${pseudo} a rejoint la salle.`);
 
         const nbPlayers = Object.keys(rooms[room].players).length;
-        if (nbPlayers === 3) {
-            console.log(`🎮 La salle ${room} atteint 4 joueurs, lancement du jeu.`);
+        if (nbPlayers === 4) {
             io.to(room).emit('game-start', {
                 room,
                 players: Object.values(rooms[room].players)

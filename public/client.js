@@ -175,7 +175,6 @@ function submitCaptionToServer(caption) {
         return;
     }
     
-    console.log(`🎯 CAPTION SOUMISE - Joueur: ${currentPlayer} | Round: ${currentRound} | Texte: "${caption}"`);
     hasSubmittedCaption = true;
     
     socket.emit('submit-caption', { 
