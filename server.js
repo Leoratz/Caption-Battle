@@ -42,7 +42,7 @@ io.on('connection', (socket) => {
         socket.to(room).emit('system-message', `${pseudo} a rejoint la salle.`);
 
         const nbPlayers = Object.keys(rooms[room].players).length;
-        if (nbPlayers === 4) {
+        if (nbPlayers === 3) {
             console.log(`🎮 La salle ${room} atteint 4 joueurs, lancement du jeu.`);
             io.to(room).emit('game-start', {
                 room,
@@ -204,7 +204,11 @@ function startRound(room, roundNumber) {
         
         allPlayers.forEach(playerId => {
             const playerName = rooms[room].players[playerId];
-            console.log(`🔍 Debug - ID ${playerId} -> Pseudo ${playerName}`);
+            if (!playerName) {
+                console.log(`⚠️ Aucun pseudo trouvé pour le socketId ${playerId}, joueur probablement déconnecté`);
+                return; // on skip
+            }
+
             if (!submittedPlayers.includes(playerName)) {
                 captions[room][roundNumber][playerName] = "Temps écoulé !";
                 console.log(`📝 Légende par défaut ajoutée pour ${playerName}`);
@@ -212,6 +216,7 @@ function startRound(room, roundNumber) {
                 console.log(`✅ ${playerName} a déjà soumis sa légende`);
             }
         });
+
         
         startVoting(room, roundNumber);
     }, 35000); // 35 secondes pour laisser plus de marge aux joueurs

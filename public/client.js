@@ -106,7 +106,6 @@ function setupGame() {
             const captionText = document.getElementById('caption-text').value.trim();
             
             if (captionText && !hasSubmittedCaption) {
-                hasSubmittedCaption = true;
                 submitCaptionToServer(captionText);
                 event.target.disabled = true;
                 event.target.textContent = '✅ Envoyé !';
@@ -207,6 +206,7 @@ function submitCaptionToServer(caption) {
     }
     
     console.log('📝 Envoi de la légende au serveur:', caption);
+    console.log(`🎯 CAPTION SOUMISE - Joueur: ${currentPlayer} | Round: ${currentRound} | Texte: "${caption}"`);
     hasSubmittedCaption = true;
     
     socket.emit('submit-caption', { 
@@ -327,6 +327,15 @@ function startTimer(duration, elementId, callback) {
     }, 1000);
     
     return countdown;
+}
+
+function clearAllTimers() {
+    console.log('🧹 Nettoyage de tous les timers côté client');
+    if (currentTimer) {
+        clearInterval(currentTimer);
+        currentTimer = null;
+        console.log('✅ Timer courant nettoyé');
+    }
 }
 
 function updatePlayerScores(totalScores) {
