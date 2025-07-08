@@ -11,6 +11,7 @@ let hasSubmittedCaption = false;
 let hasVoted = false;
 let currentRound = 1;
 let currentTimer = null; // Pour gérer les timers côté client
+let isHost = false; // Pour savoir si le joueur est le host
 
 // Attendre que la page soit complètement chargée
 window.addEventListener('load', function() {
@@ -70,10 +71,14 @@ function setupGame() {
     
     // Délégation d'événements pour les boutons du jeu
     document.addEventListener('click', function(event) {
-        // Bouton démarrer le jeu - Le jeu démarre automatiquement avec 4 joueurs
+        // Bouton démarrer le jeu
         if (event.target.id === 'start-game-btn') {
             event.preventDefault();
-            showMessage('Attendez que 4 joueurs rejoignent la salle pour commencer');
+            if (isHost) {
+                socket.emit('start-game');
+            } else {
+                showMessage('Seul le host peut démarrer la partie');
+            }
         }
         
         // Bouton soumettre légende
@@ -130,8 +135,11 @@ function createGameInterface(gameDiv) {
             <div class="game-content">
                 <div id="waiting-area" class="phase-container">
                     <h3>🚀 En attente d'autres joueurs...</h3>
-                    <p>Le jeu commence automatiquement quand 4 joueurs sont connectés</p>
                     <div id="status-message">Attendez que vos amis rejoignent avec le même nom de salle</div>
+                    <div id="host-controls" style="display: none;">
+                        <button id="start-game-btn" class="start-btn">🎮 Commencer la partie</button>
+                        <p class="host-info">Vous êtes le host - vous pouvez démarrer la partie quand vous voulez !</p>
+                    </div>
                 </div>
                 
                 <div id="meme-display" class="phase-container" style="display: none;">
@@ -202,6 +210,22 @@ function voteForCaptionOnServer(votedPseudo) {
     });
 }
 
+function updateHostStatus(hostStatus) {
+    isHost = hostStatus;
+    const hostControls = document.getElementById('host-controls');
+    const statusMessage = document.getElementById('status-message');
+    
+    if (hostControls && statusMessage) {
+        if (isHost) {
+            hostControls.style.display = 'block';
+            statusMessage.textContent = `${players.length} joueur(s) connecté(s). Vous pouvez démarrer la partie !`;
+        } else {
+            hostControls.style.display = 'none';
+            statusMessage.textContent = `${players.length} joueur(s) connecté(s). Attendez que le host démarre la partie.`;
+        }
+    }
+}
+
 function updatePlayersList(playersList) {
     players = playersList;
     
@@ -214,25 +238,18 @@ function updatePlayersList(playersList) {
     
     const playersContainer = document.getElementById('players-container');
     if (playersContainer) {
-        playersContainer.innerHTML = playersList.map(player => `
+        playersContainer.innerHTML = playersList.map((player, index) => `
             <div class="player-item">
                 <span class="player-name">${player}</span>
                 <span class="player-score" id="score-${player}">Score: ${playerScores[player] || 0}</span>
                 ${player === currentPlayer ? '<span class="host-badge">VOUS</span>' : ''}
+                ${index === 0 ? '<span class="host-badge">HOST</span>' : ''}
             </div>
         `).join('');
     }
     
-    // Mettre à jour le statut
-    const statusMessage = document.getElementById('status-message');
-    if (statusMessage) {
-        const remaining = 4 - playersList.length;
-        if (remaining > 0) {
-            statusMessage.textContent = `En attente de ${remaining} joueur(s) supplémentaire(s)`;
-        } else {
-            statusMessage.textContent = 'Tous les joueurs sont connectés ! Le jeu va commencer...';
-        }
-    }
+    // Mettre à jour le statut host
+    updateHostStatus(isHost);
 }
 
 function showMessage(message) {
@@ -323,6 +340,15 @@ socket.on('connect', function() {
 
 socket.on('player-list', function(playersList) {
     updatePlayersList(playersList);
+});
+
+socket.on('host-status', function(data) {
+    isHost = data.isHost;
+    updateHostStatus(isHost);
+});
+
+socket.on('error-message', function(message) {
+    showMessage('⚠️ ' + message);
 });
 
 socket.on('game-start', function(data) {

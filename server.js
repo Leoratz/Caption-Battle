@@ -38,17 +38,42 @@ io.on('connection', (socket) => {
         io.to(room).emit('player-list', Object.values(rooms[room].players));
         socket.to(room).emit('system-message', `${pseudo} a rejoint la salle.`);
 
-        const nbPlayers = Object.keys(rooms[room].players).length;
-        if (nbPlayers === 4) {
-            io.to(room).emit('game-start', {
-                room,
-                players: Object.values(rooms[room].players)
-            });
+        // Le premier joueur devient le host
+        const isHost = Object.keys(rooms[room].players).length === 1;
+        socket.emit('host-status', { isHost });
+    });
 
-            setTimeout(() => {
-                startRound(room, 1);
-            }, 2000);
+    socket.on('start-game', () => {
+        const room = socket.data.room;
+        const pseudo = socket.data.pseudo;
+        if (!room || !pseudo) return;
+
+        // Vérifier que c'est le host (premier joueur)
+        const playerIds = Object.keys(rooms[room].players);
+        const hostId = playerIds[0];
+        
+        if (socket.id !== hostId) {
+            socket.emit('error-message', 'Seul le host peut démarrer la partie');
+            return;
         }
+
+        // Vérifier qu'il y a au moins 2 joueurs
+        const nbPlayers = playerIds.length;
+        if (nbPlayers < 2) {
+            socket.emit('error-message', 'Il faut au moins 2 joueurs pour commencer');
+            return;
+        }
+
+        console.log(`🎮 Le host ${pseudo} démarre le jeu dans la salle ${room} avec ${nbPlayers} joueurs`);
+        
+        io.to(room).emit('game-start', {
+            room,
+            players: Object.values(rooms[room].players)
+        });
+
+        setTimeout(() => {
+            startRound(room, 1);
+        }, 2000);
     });
 
     socket.on('submit-caption', ({ round, caption }) => {
