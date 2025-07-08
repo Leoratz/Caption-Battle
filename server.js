@@ -19,8 +19,8 @@ const memes = fs.readdirSync(memesDir).map(filename => `/memes/${filename}`);
 const rooms = {};
 const captions = {};
 const votes = {};
-const timers = {}; // Pour gérer les timers automatiques
-const usedMemes = {}; // Pour éviter la répétition des memes par salle
+const timers = {};
+const usedMemes = {};
 
 io.on('connection', (socket) => {
 
@@ -64,8 +64,6 @@ io.on('connection', (socket) => {
             socket.emit('error-message', 'Il faut au moins 2 joueurs pour commencer');
             return;
         }
-
-        console.log(`🎮 Le host ${pseudo} démarre le jeu dans la salle ${room} avec ${nbPlayers} joueurs`);
         
         io.to(room).emit('game-start', {
             room,
@@ -84,13 +82,11 @@ io.on('connection', (socket) => {
 
         // Vérifier que le round est actif
         if (!captions[room] || !captions[room][round]) {
-            console.log(`⚠️ ${pseudo} essaie de soumettre une légende pour un round inexistant: ${round} dans la salle ${room}`);
             return;
         }
 
         // Vérifier que le joueur n'a pas déjà soumis
         if (captions[room][round][pseudo]) {
-            console.log(`⚠️ ${pseudo} essaie de soumettre une seconde légende pour le round ${round}`);
             return;
         }
 
@@ -102,7 +98,6 @@ io.on('connection', (socket) => {
 
         if (submitted === totalPlayers) {
             // Tous les joueurs ont soumis, on peut passer au vote immédiatement
-            console.log(`✅ Toutes les légendes soumises pour le round ${round}, passage au vote`);
             clearTimeout(timers[room]?.captionTimer);
             startVoting(room, round);
         }
@@ -115,19 +110,16 @@ io.on('connection', (socket) => {
 
         // Vérifier que le round est actif
         if (!votes[room] || !votes[room][round]) {
-            console.log(`⚠️ ${voter} essaie de voter pour un round inexistant: ${round} dans la salle ${room}`);
             return;
         }
 
         // Vérifier que le joueur n'a pas déjà voté
         if (votes[room][round][voter]) {
-            console.log(`⚠️ ${voter} essaie de voter une seconde fois pour le round ${round}`);
             return;
         }
 
         // Vérifier qu'on ne vote pas pour soi-même
         if (voter === votedPseudo) {
-            console.log(`⚠️ ${voter} essaie de voter pour lui-même`);
             return;
         }
 
