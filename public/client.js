@@ -468,16 +468,12 @@ socket.on('vote-start', function(captionsData) {
     hasVoted = false;
     console.log(`🗳️ État de vote réinitialisé pour le round ${currentRound}`);
     
-    // Timer de vote avec gestion améliorée
+    // Timer de vote - le serveur gère les votes automatiques
     currentTimer = startTimer(20, 'vote-time-left', () => {
         if (!hasVoted) {
-            console.log('⏰ Temps de vote écoulé ! Vote automatique...');
-            // Vote automatique pour éviter de bloquer
-            const otherCaptions = captionsData.filter(c => c.pseudo !== currentPlayer);
-            if (otherCaptions.length > 0) {
-                voteForCaptionOnServer(otherCaptions[0].pseudo);
-                showMessage('⏰ Temps écoulé ! Vote automatique effectué.');
-            }
+            console.log('⏰ Temps de vote écoulé ! Le serveur va gérer le vote automatique...');
+            // Le serveur gère automatiquement les votes manqués
+            showMessage('⏰ Temps écoulé ! En attente de la fin du vote...');
         }
     });
     
@@ -488,6 +484,9 @@ socket.on('round-end', function(data) {
     console.log('🏆 Fin du round:', data);
     console.log('📊 Scores du round reçus:', data.roundScores);
     console.log('📊 Scores totaux reçus:', data.totalScores);
+    
+    // 🔧 Nettoyer tous les timers pour éviter les votes en retard
+    clearAllTimers();
     
     switchPhase('results-phase');
     
