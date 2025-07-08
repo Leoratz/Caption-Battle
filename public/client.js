@@ -12,40 +12,23 @@ let hasVoted = false;
 let currentRound = 1;
 let currentTimer = null; // Pour gérer les timers côté client
 
-console.log('🚀 Script client.js chargé');
-
 // Attendre que la page soit complètement chargée
 window.addEventListener('load', function() {
-    console.log('=== PAGE CHARGÉE ===');
-    console.log('🎯 Initialisation du jeu...');
-    
-    // Petit délai pour s'assurer que Socket.IO est prêt
     setTimeout(initializeGame, 100);
 });
 
 function initializeGame() {
-    console.log('🔧 Début de l\'initialisation...');
-    
     try {
         // Vérification des éléments HTML de base
         const joinForm = document.getElementById('join-form');
         const gameDiv = document.getElementById('game');
         
-        console.log('🔍 Vérification des éléments:');
-        console.log('- joinForm:', !!joinForm);
-        console.log('- gameDiv:', !!gameDiv);
-        
         if (!joinForm || !gameDiv) {
             throw new Error('Éléments HTML de base manquants');
         }
         
-        
         // Configurer les événements
-        console.log('⚡ Configuration des événements...');
         setupGame();
-        
-        console.log('✅ INITIALISATION TERMINÉE');
-        console.log('🎮 Jeu prêt !');
         
     } catch (error) {
         console.error('❌ ERREUR LORS DE L\'INITIALISATION:', error);
@@ -65,12 +48,9 @@ function setupGame() {
     // Événement de soumission du formulaire
     joinForm.addEventListener('submit', function(event) {
         event.preventDefault();
-        console.log('=== FORMULAIRE SOUMIS ===');
         
         const pseudo = document.getElementById('pseudo').value.trim();
         const room = document.getElementById('room').value.trim();
-        
-        console.log('📝 Pseudo:', pseudo, 'Room:', room);
         
         if (!pseudo || !room) {
             alert('Veuillez entrer un pseudo et un nom de salle valides.');
@@ -81,7 +61,6 @@ function setupGame() {
         currentRoom = room;
         
         // Envoyer au serveur
-        console.log('📡 Envoi au serveur...');
         socket.emit('join-room', { pseudo, room });
         
         // Cacher le formulaire et créer l'interface
@@ -91,12 +70,9 @@ function setupGame() {
     
     // Délégation d'événements pour les boutons du jeu
     document.addEventListener('click', function(event) {
-        console.log('🖱️ Clic détecté:', event.target.id);
-        
         // Bouton démarrer le jeu - Le jeu démarre automatiquement avec 4 joueurs
         if (event.target.id === 'start-game-btn') {
             event.preventDefault();
-            console.log('⚠️ Le jeu démarre automatiquement quand 4 joueurs sont connectés');
             showMessage('Attendez que 4 joueurs rejoignent la salle pour commencer');
         }
         
@@ -116,7 +92,6 @@ function setupGame() {
         // Bouton round suivant - Le serveur gère automatiquement
         if (event.target.id === 'next-round-btn') {
             event.preventDefault();
-            console.log('⚠️ Le round suivant démarre automatiquement');
         }
         
         // Boutons de vote
@@ -131,8 +106,6 @@ function setupGame() {
 }
 
 function createGameInterface(gameDiv) {
-    console.log('🏗️ Création de l\'interface de jeu...');
-    
     gameDiv.innerHTML = `
         <div class="game-container">
             <div class="game-header">
@@ -194,18 +167,14 @@ function createGameInterface(gameDiv) {
             </div>
         </div>
     `;
-    
-    console.log('✅ Interface créée avec succès !');
 }
 
 // Fonctions pour gérer la communication avec le serveur
 function submitCaptionToServer(caption) {
     if (hasSubmittedCaption) {
-        console.log('⚠️ Légende déjà soumise pour ce round');
         return;
     }
     
-    console.log('📝 Envoi de la légende au serveur:', caption);
     console.log(`🎯 CAPTION SOUMISE - Joueur: ${currentPlayer} | Round: ${currentRound} | Texte: "${caption}"`);
     hasSubmittedCaption = true;
     
@@ -218,7 +187,6 @@ function submitCaptionToServer(caption) {
 function voteForCaptionOnServer(votedPseudo) {
     if (hasVoted) return;
     
-    console.log('🗳️ Vote envoyé au serveur pour:', votedPseudo);
     hasVoted = true;
     
     // Désactiver tous les boutons de vote
@@ -236,7 +204,6 @@ function voteForCaptionOnServer(votedPseudo) {
 }
 
 function updatePlayersList(playersList) {
-    console.log('👥 Mise à jour de la liste des joueurs:', playersList);
     players = playersList;
     
     // Initialiser les scores pour les nouveaux joueurs
@@ -270,8 +237,6 @@ function updatePlayersList(playersList) {
 }
 
 function showMessage(message) {
-    console.log('📢 Message:', message);
-    
     // Afficher une notification
     const notification = document.createElement('div');
     notification.style.cssText = `
@@ -290,8 +255,6 @@ function showMessage(message) {
 }
 
 function switchPhase(phase) {
-    console.log('🔄 Changement vers la phase:', phase);
-    
     // Cacher toutes les phases
     const phases = ['waiting-area', 'meme-display', 'voting-phase', 'results-phase'];
     phases.forEach(phaseId => {
@@ -305,7 +268,6 @@ function switchPhase(phase) {
     const currentPhase = document.getElementById(phase);
     if (currentPhase) {
         currentPhase.style.display = 'block';
-        console.log(`✅ Phase ${phase} affichée`);
     }
 }
 
@@ -330,17 +292,13 @@ function startTimer(duration, elementId, callback) {
 }
 
 function clearAllTimers() {
-    console.log('🧹 Nettoyage de tous les timers côté client');
     if (currentTimer) {
         clearInterval(currentTimer);
         currentTimer = null;
-        console.log('✅ Timer courant nettoyé');
     }
 }
 
 function updatePlayerScores(totalScores) {
-    console.log('📊 Mise à jour des scores:', totalScores);
-    
     // Mettre à jour les scores globaux
     playerScores = { ...totalScores };
     
@@ -361,35 +319,28 @@ function updatePlayerScores(totalScores) {
 
 // Événements Socket.IO - Intégration avec le serveur
 socket.on('connect', function() {
-    console.log('🔗 Connecté au serveur : ' + socket.id);
+    console.log('🔗 Connecté au serveur');
 });
 
 socket.on('player-list', function(playersList) {
-    console.log('👥 Liste des joueurs reçue:', playersList);
     updatePlayersList(playersList);
 });
 
 socket.on('game-start', function(data) {
-    console.log('🎮 Le jeu commence !', data);
     showMessage('Le jeu commence ! Préparez-vous...');
 });
 
 socket.on('round-start', function(data) {
-    console.log('🕒 Nouveau round:', data);
-    
     // Nettoyer le timer précédent s'il existe
     if (currentTimer) {
         clearInterval(currentTimer);
         currentTimer = null;
-        console.log('🧹 Timer précédent nettoyé');
     }
     
     // Réinitialiser l'état du round
     currentRound = data.round;
     hasSubmittedCaption = false;
     hasVoted = false;
-    
-    console.log(`🎮 Démarrage du round ${currentRound} - État réinitialisé`);
     
     // Passer en phase meme
     switchPhase('meme-display');
@@ -400,7 +351,6 @@ socket.on('round-start', function(data) {
     
     if (memeImg) {
         memeImg.src = data.imageUrl;
-        memeImg.onload = () => console.log('✅ Meme chargé !');
         memeImg.onerror = () => console.error('❌ Erreur chargement meme');
         
         if (votingMeme) {
@@ -426,8 +376,6 @@ socket.on('round-start', function(data) {
     // Timer avec gestion améliorée
     currentTimer = startTimer(data.duration, 'time-left', () => {
         if (!hasSubmittedCaption) {
-            console.log('⏰ Temps écoulé ! Le serveur va gérer la soumission automatique...');
-            
             // Désactiver l'interface sans soumettre - le serveur s'en charge
             const captionInput = document.getElementById('caption-text');
             const submitBtn = document.getElementById('submit-caption');
@@ -447,14 +395,12 @@ socket.on('round-start', function(data) {
 });
 
 socket.on('vote-start', function(captionsData) {
-    console.log('🗳️ Phase de vote commencée:', captionsData);
     captions = captionsData;
     
     // Nettoyer le timer précédent s'il existe
     if (currentTimer) {
         clearInterval(currentTimer);
         currentTimer = null;
-        console.log('🧹 Timer de légendes nettoyé pour passer au vote');
     }
     
     switchPhase('voting-phase');
@@ -475,12 +421,10 @@ socket.on('vote-start', function(captionsData) {
     
     // Reset hasVoted pour le nouveau round
     hasVoted = false;
-    console.log(`🗳️ État de vote réinitialisé pour le round ${currentRound}`);
     
     // Timer de vote - le serveur gère les votes automatiques
     currentTimer = startTimer(20, 'vote-time-left', () => {
         if (!hasVoted) {
-            console.log('⏰ Temps de vote écoulé ! Le serveur va gérer le vote automatique...');
             // Le serveur gère automatiquement les votes manqués
             showMessage('⏰ Temps écoulé ! En attente de la fin du vote...');
         }
@@ -490,11 +434,7 @@ socket.on('vote-start', function(captionsData) {
 });
 
 socket.on('round-end', function(data) {
-    console.log('🏆 Fin du round:', data);
-    console.log('📊 Scores du round reçus:', data.roundScores);
-    console.log('📊 Scores totaux reçus:', data.totalScores);
-    
-    // 🔧 Nettoyer tous les timers pour éviter les votes en retard
+    // Nettoyer tous les timers pour éviter les votes en retard
     clearAllTimers();
     
     switchPhase('results-phase');
@@ -551,8 +491,6 @@ socket.on('round-end', function(data) {
 });
 
 socket.on('game-end', function(data) {
-    console.log('🎯 Fin de partie !', data);
-    
     const finalScores = Object.entries(data.scores).sort(([,a], [,b]) => b - a);
     const champion = finalScores[0];
     
@@ -569,8 +507,6 @@ socket.on('game-end', function(data) {
 });
 
 socket.on('system-message', function(message) {
-    console.log('📢 Message système:', message);
-    
     // Afficher une notification
     const notification = document.createElement('div');
     notification.style.cssText = `
@@ -589,7 +525,6 @@ socket.on('system-message', function(message) {
 });
 
 socket.on('disconnect', function() {
-    console.log('🔌 Déconnecté du serveur');
     showMessage('⚠️ Connexion perdue avec le serveur');
 });
 

@@ -73,12 +73,10 @@ io.on('connection', (socket) => {
         }
 
         captions[room][round][pseudo] = caption;
-        console.log(`📝 ${pseudo} a soumis une légende: "${caption}" pour le round ${round}`);
+        console.log(`📝 ${pseudo} a soumis une légende pour le round ${round}`);
 
         const totalPlayers = Object.keys(rooms[room].players).length;
         const submitted = Object.keys(captions[room][round]).length;
-
-        console.log(`📊 Salle ${room}, round ${round}: ${submitted}/${totalPlayers} légendes soumises`);
 
         if (submitted === totalPlayers) {
             // Tous les joueurs ont soumis, on peut passer au vote immédiatement
@@ -117,8 +115,6 @@ io.on('connection', (socket) => {
         const totalPlayers = Object.keys(rooms[room].players).length;
         const totalVotes = Object.keys(votes[room][round]).length;
 
-        console.log(`📊 Salle ${room}, round ${round}: ${totalVotes}/${totalPlayers} votes soumis`);
-
         if (totalVotes === totalPlayers) {
             // Tous les joueurs ont voté, on peut terminer le round immédiatement
             console.log(`✅ Tous les votes soumis pour le round ${round}, fin du round`);
@@ -154,17 +150,15 @@ io.on('connection', (socket) => {
 
 function startRound(room, roundNumber) {
     const img = memes[Math.floor(Math.random() * memes.length)];
-    console.log(`🕒 Démarrage de la manche ${roundNumber} dans la salle ${room}.`);
+    console.log(`🕒 Démarrage de la manche ${roundNumber} dans la salle ${room}`);
 
-    // NETTOYER TOUS LES TIMERS EXISTANTS AVANT DE COMMENCER
+    // Nettoyer tous les timers existants avant de commencer
     if (timers[room]) {
         if (timers[room].captionTimer) {
             clearTimeout(timers[room].captionTimer);
-            console.log(`🧹 Timer de légendes précédent nettoyé pour la salle ${room}`);
         }
         if (timers[room].voteTimer) {
             clearTimeout(timers[room].voteTimer);
-            console.log(`🧹 Timer de votes précédent nettoyé pour la salle ${room}`);
         }
     }
 
@@ -183,8 +177,6 @@ function startRound(room, roundNumber) {
     // Initialiser les timers pour cette salle si nécessaire
     if (!timers[room]) timers[room] = {};
     
-    console.log(`⏰ Démarrage du timer de 30 secondes pour les légendes dans la salle ${room}, round ${roundNumber}`);
-    
     // Timer automatique: après 30 secondes, passer au vote même si tout le monde n'a pas soumis
     timers[room].captionTimer = setTimeout(() => {
         console.log(`⏰ Temps écoulé pour les légendes dans la salle ${room}, round ${roundNumber}`);
@@ -199,27 +191,19 @@ function startRound(room, roundNumber) {
         const allPlayers = Object.keys(rooms[room].players);
         const submittedPlayers = Object.keys(captions[room][roundNumber]);
         
-        console.log(`🔍 Debug - Tous les joueurs (IDs):`, allPlayers);
-        console.log(`🔍 Debug - Joueurs ayant soumis:`, submittedPlayers);
-        
         allPlayers.forEach(playerId => {
             const playerName = rooms[room].players[playerId];
             if (!playerName) {
-                console.log(`⚠️ Aucun pseudo trouvé pour le socketId ${playerId}, joueur probablement déconnecté`);
-                return; // on skip
+                return; // Joueur déconnecté
             }
 
             if (!submittedPlayers.includes(playerName)) {
                 captions[room][roundNumber][playerName] = "Temps écoulé !";
-                console.log(`📝 Légende par défaut ajoutée pour ${playerName}`);
-            } else {
-                console.log(`✅ ${playerName} a déjà soumis sa légende`);
             }
         });
 
-        
         startVoting(room, roundNumber);
-    }, 35000); // 35 secondes pour laisser plus de marge aux joueurs
+    }, 35000);
 }
 
 function startVoting(room, round) {
@@ -229,7 +213,6 @@ function startVoting(room, round) {
     if (timers[room]?.captionTimer) {
         clearTimeout(timers[room].captionTimer);
         timers[room].captionTimer = null;
-        console.log(`🧹 Timer de légendes nettoyé pour la salle ${room}`);
     }
     
     // Vérifier que les données du round existent
@@ -242,20 +225,12 @@ function startVoting(room, round) {
         pseudo, caption
     }));
     
-    console.log(`📝 Légendes pour le vote dans la salle ${room}:`, captionsArray);
-    console.log(`🔍 Debug - Données brutes des légendes:`, captions[room][round]);
-    
     io.to(room).emit('vote-start', captionsArray);
-    
-    console.log(`⏰ Démarrage du timer de 20 secondes pour les votes dans la salle ${room}, round ${round}`);
     
     // Timer automatique: après 20 secondes, terminer le round même si tout le monde n'a pas voté
     timers[room].voteTimer = setTimeout(() => {
-        console.log(`⏰ Temps écoulé pour les votes dans la salle ${room}, round ${round}`);
-        
         // Vérifier que ce round est toujours actif
         if (!votes[room] || !votes[room][round]) {
-            console.log(`⚠️ Round ${round} déjà terminé ou inexistant dans la salle ${room}`);
             return;
         }
         
@@ -271,13 +246,12 @@ function startVoting(room, round) {
                 const otherCaptions = availableCaptions.filter(pseudo => pseudo !== playerName);
                 if (otherCaptions.length > 0) {
                     votes[room][round][playerName] = otherCaptions[0];
-                    console.log(`🗳️ Vote par défaut ajouté: ${playerName} vote pour ${otherCaptions[0]}`);
                 }
             }
         });
         
         endRound(room, round);
-    }, 22000); // 22 secondes pour laisser un peu de marge
+    }, 22000);
 }
 
 function endRound(room, round) {
@@ -287,31 +261,21 @@ function endRound(room, round) {
     if (timers[room]?.voteTimer) {
         clearTimeout(timers[room].voteTimer);
         timers[room].voteTimer = null;
-        console.log(`🧹 Timer de votes nettoyé pour la salle ${room}`);
     }
     
     const scoreMap = {};
     
     // Compter les votes pour chaque joueur
-    console.log(`📊 Votes pour la salle ${room}, round ${round}:`, votes[room][round]);
-    
     for (const vote of Object.values(votes[room][round])) {
         scoreMap[vote] = (scoreMap[vote] || 0) + 1;
     }
-    
-    console.log(`📊 Scores du round ${round}:`, scoreMap);
 
     // Mise à jour des scores globaux
     for (const [pseudo, pts] of Object.entries(scoreMap)) {
         if (rooms[room].scores[pseudo] !== undefined) {
             rooms[room].scores[pseudo] += pts;
-            console.log(`📈 ${pseudo}: +${pts} points (total: ${rooms[room].scores[pseudo]})`);
-        } else {
-            console.log(`⚠️ Joueur ${pseudo} introuvable dans les scores globaux`);
         }
     }
-    
-    console.log(`📊 Scores totaux après round ${round}:`, rooms[room].scores);
 
     io.to(room).emit('round-end', {
         round,
@@ -320,26 +284,18 @@ function endRound(room, round) {
     });
 
     if (round < 3) {
-        console.log(`🔄 Programmation du round ${round + 1} dans 5 secondes pour la salle ${room}`);
         setTimeout(() => {
-            // Vérifier que la salle existe encore
             if (rooms[room]) {
                 startRound(room, round + 1);
-            } else {
-                console.log(`⚠️ Salle ${room} supprimée avant le démarrage du round ${round + 1}`);
             }
         }, 5000);
     } else {
-        console.log(`🏁 Fin de partie programmée dans 5 secondes pour la salle ${room}`);
         setTimeout(() => {
-            // Vérifier que la salle existe encore
             if (rooms[room]) {
                 io.to(room).emit('game-end', {
                     scores: rooms[room].scores
                 });
-                console.log(`🎯 Fin de partie envoyée pour la salle ${room}`);
-            } else {
-                console.log(`⚠️ Salle ${room} supprimée avant la fin de partie`);
+                console.log(`🎯 Fin de partie pour la salle ${room}`);
             }
         }, 5000);
     }
