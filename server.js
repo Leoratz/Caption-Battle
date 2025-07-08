@@ -199,16 +199,22 @@ function startRound(room, roundNumber) {
         const allPlayers = Object.keys(rooms[room].players);
         const submittedPlayers = Object.keys(captions[room][roundNumber]);
         
+        console.log(`🔍 Debug - Tous les joueurs (IDs):`, allPlayers);
+        console.log(`🔍 Debug - Joueurs ayant soumis:`, submittedPlayers);
+        
         allPlayers.forEach(playerId => {
             const playerName = rooms[room].players[playerId];
+            console.log(`🔍 Debug - ID ${playerId} -> Pseudo ${playerName}`);
             if (!submittedPlayers.includes(playerName)) {
                 captions[room][roundNumber][playerName] = "Temps écoulé !";
                 console.log(`📝 Légende par défaut ajoutée pour ${playerName}`);
+            } else {
+                console.log(`✅ ${playerName} a déjà soumis sa légende`);
             }
         });
         
         startVoting(room, roundNumber);
-    }, 32000); // 32 secondes pour laisser un peu de marge
+    }, 35000); // 35 secondes pour laisser plus de marge aux joueurs
 }
 
 function startVoting(room, round) {
@@ -232,6 +238,7 @@ function startVoting(room, round) {
     }));
     
     console.log(`📝 Légendes pour le vote dans la salle ${room}:`, captionsArray);
+    console.log(`🔍 Debug - Données brutes des légendes:`, captions[room][round]);
     
     io.to(room).emit('vote-start', captionsArray);
     
